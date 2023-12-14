@@ -1,7 +1,7 @@
 -- This script creates a stored procedure
 -- ComputeAverageWeightedScoreForUser that
 -- Computes and store the average weighted
--- Score for a student
+-- Score for a student.
 
 DELIMITER $$
 DROP PROCEDURE IF EXISTS ComputeAverageWeightedScoreForUser;
