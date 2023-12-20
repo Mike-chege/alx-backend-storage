@@ -11,62 +11,86 @@ UnionOfTypes = Union[str, bytes, int, float]
 
 
 def count_calls(method: Callable) -> Callable:
-    """Decorator Counts how many times methods of Cache class are called"""
+    """
+    Decorator Counts how many times
+    Methods of Cache class are called
+    """
     key = method.__qualname__
 
     @wraps(method)
     def wrapper(self, *args, **kwds):
-        """This is a wrapper function for count_calls method"""
+        """
+        This is wrapper function for call_calls method
+        """
         self._redis.incr(key)
         return method(self, *args, **kwds)
     return wrapper
 
+
 def call_history(method: Callable) -> Callable:
-    """Stores the history of inputs and outputs for a particular function"""
+    """
+    Stores the history of inputs and outputs
+    For a particular function
+    """
     input_list = method.__qualname__ + ":inputs"
     output_list = method.__qualname__ + ":outputs"
 
     @wraps(method)
     def wrapper(self, *args) -> bytes:
-        """This is a wrapper function for call_history method"""
-        str_args = [str(arg) for arg in args]  # Convert args to strings
-        self._redis.rpush(input_list, str(str_args))
+        """
+        This is wrapper function for call_history method
+        """
+        self._redis.rpush(input_list, str(args))
         output = method(self, *args)
         self._redis.rpush(output_list, output)
         return output
     return wrapper
 
-class Cache:
-    """Class for methods that operate a caching system"""
 
-    # ... (other code)
+class Cache:
+    """
+    Class for methods that operate a caching system
+    """
+
+    def __init__(self):
+        """
+        Instance of Redis db
+        """
+        self._redis = redis.Redis()
+        self._redis.flushdb()
 
     @count_calls
     @call_history
-    def store(self, data: UnionOfTypes) -> str:
+    def store(self,
+              data: UnionOfTypes) -> str:
         """
-        Method takes a data argument and returns a string
-        Generate a random key (e.g. using uuid), store the input data in Redis
+        Method takes a data argument and returns a string,
+        Generate a random key (e.g. using uuid),
+        Store the input data in Redis,
         using the random key and return the key
         """
         key = str(uuid4())
         self._redis.mset({key: data})
         return key
 
-    # ... (other code)
-
-    def get(self, key: str, fn: Optional[Callable] = None) -> UnionOfTypes:
+    def get(self,
+            key: str,
+            fn: Optional[Callable] = None) -> UnionOfTypes:
         """
-        Retrieves data stored at a key
+        Retrieves data stored at a key,
         Converts the data back to the desired format
         """
         data = self._redis.get(key)
-        return fn(data) if (fn and data is not None) else data
+        return fn(data) if fn else data
 
-    def get_str(self, key: str) -> str:
-        """Get a string"""
+    def get_str(self, data: str) -> str:
+        """
+        Get a string
+        """
         return self.get(key, str)
 
-    def get_int(self, key: str) -> int:
-        """Get an int"""
+    def get_int(self, data: str) -> int:
+        """
+        Get an int
+        """
         return self.get(key, int)
