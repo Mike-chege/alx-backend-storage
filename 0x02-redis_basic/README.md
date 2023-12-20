@@ -3,8 +3,8 @@
 This project covers Redis Basics.
 
 ## :scroll: That is
-- How to use redis for basic operations
-- And how to use redis as a simple cache
+- How to use redis for basic operations,
+- And how to use redis as a simple cache.
 
 ## :open_file_folder: To install Redis on Ubuntu 18.04
 Use:
