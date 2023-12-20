@@ -5,95 +5,101 @@ Redis
 
 import redis
 from uuid import uuid4
-from typing import Union, Callable, Optional
+from typing import Union, Callable, Optional, Any
 from functools import wraps
-UnionOfTypes = Union[str, bytes, int, float]
+
+
+def call_history(method: Callable) -> Callable:
+    """
+    Store the history of inputs and outputs
+    For a particular function
+    """
+    key = method.__qualname__
+    inputs = key + ":inputs"
+    outputs = key + ":outputs"
+
+    @wraps(method)
+    def wrapper(self, *args, **kwds):
+        """
+        Wrapped function
+        """
+        self._redis.rpush(inputs, str(args))
+        data = method(self, *args, **kwds)
+        self._redis.rpush(outputs, str(data))
+        return data
+    return wrapper
 
 
 def count_calls(method: Callable) -> Callable:
     """
-    Decorator Counts how many times
-    Methods of Cache class are called
+    Count how many times methods of the Cache class are called
     """
     key = method.__qualname__
 
     @wraps(method)
     def wrapper(self, *args, **kwds):
         """
-        This is wrapper function for call_calls method
+        Wrapped function
         """
         self._redis.incr(key)
         return method(self, *args, **kwds)
     return wrapper
 
 
-def call_history(method: Callable) -> Callable:
-    """
-    Stores the history of inputs and outputs
-    For a particular function
-    """
-    input_list = method.__qualname__ + ":inputs"
-    output_list = method.__qualname__ + ":outputs"
-
-    @wraps(method)
-    def wrapper(self, *args) -> bytes:
-        """
-        This is wrapper function for call_history method
-        """
-        self._redis.rpush(input_list, str(args))
-        output = method(self, *args)
-        self._redis.rpush(output_list, output)
-        return output
-    return wrapper
-
-
 class Cache:
     """
-    Class for methods that operate a caching system
+    Class Cache
     """
-
     def __init__(self):
         """
-        Instance of Redis db
+        Constructor - store an instance of the Redis client as a private
+        variable named _redis and flush the instance using flushdb
         """
         self._redis = redis.Redis()
         self._redis.flushdb()
 
-    @count_calls
     @call_history
-    def store(self,
-              data: UnionOfTypes) -> str:
+    @count_calls
+    def store(self, data: Union[str, bytes, int, float]) -> str:
         """
-        Method takes a data argument and returns a string,
         Generate a random key (e.g. using uuid),
-        Store the input data in Redis,
-        using the random key and return the key
+        store the input data in,
+        Redis using the random key and return the key
         """
-        key = str(uuid4())
-        self._redis.mset({key: data})
+        key = str(uuid.uuid4())
+        self._redis.set(key, data)
         return key
 
-    def get(self,
-            key: str,
-            fn: Optional[Callable] = None) -> UnionOfTypes:
+    def get(self, key: str,
+            fn: Optional[Callable] = None) -> Union[str, bytes, int, float]:
         """
-        Retrieves data stored at a key,
-        Converts the data back to the desired format
+        Take a key string argument and an optional Callable argument named
+        fn. This callable will be used to convert the data back to the
+        desired format
         """
         data = self._redis.get(key)
-        return fn(data) if fn else data
+        if fn:
+            return fn(data)
+        return data
 
-    def get_str(self, data: str) -> str:
+    def get_str(self, key: str) -> str:
         """
-        Get a string
+        Get str
         """
-        return self.get(key, str)
+        data = self._redis.get(key)
+        return data.decode("utf-8")
 
-    def get_int(self, data: str) -> int:
+    def get_int(self, key: str) -> int:
         """
-        Get an int
+        Get int
         """
-        return self.get(key, int)
+        data = self._redis.get(key)
+        try:
+            data = int(value.decode("utf-8"))
+        except Exception:
+            data = 0
+        return data
+
 
 def replay(method: Callable):
     """
